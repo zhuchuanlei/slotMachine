@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>老虎机滚动</title>
+  <meta id="viewport" name="viewport" content="width=device-width,initial-scale=.1,user-scalable=no">
+  <meta name="format-detection" content="telephone=no,email=no,adress=no">
+  <meta name="apple-touch-fullscreen" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <style>
+    @font-face {
+      font-family: acc;
+      src: url('./acc.ttf')
+    }
+
+    #test {
+      width: 198px;
+      height: 273px;
+      border: 1px solid #2375f3;
+      position: absolute;
+      left: 50%;
+      transform: translate(-50%, 100px);
+    }
+
+    * {
+      box-sizing: border-box;
+      font-size: 24px;
+    }
+
+    html {
+      width: 100%;
+      height: 100%;
+      background: white;
+    }
+
+    body {
+      width: 100%;
+      height: 100%;
+    }
+
+    #app {
+      width: 100%;
+      height: 100%;
+    }
+
+    button {
+      font-family: acc;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="test"></div>
+  <div onclick="start()">开始</div>
+  <div onclick="end()">结束</div>
+  <button onclick="end(1)">1</button>
+  <button onclick="end(2)">2</button>
+  <button onclick="end(3)">3</button>
+  <button onclick="end(4)">4</button>
+  <button onclick="end(5)">5</button>
+  <button onclick="end(6)">6</button>
+  <button onclick="end(7)">7</button>
+  <button onclick="end(8)">8</button>
+  <button onclick="end(9)">9</button>
+  <button onclick="end(0)">0</button>
+  <script>
+    var canvas = null;
+  </script>
+  <script type="module">
+    import SlotMachine from './slotMachine.js';
+    const xi = 5;
+    canvas = new SlotMachine({
+      dom: document.getElementById("test"),
+      width: 96 * xi,
+      height: 136 * xi,
+      fontSize: 96 * xi,
+    })
+    canvas.start()
+
+  </script>
+  <script>
+    function start() {
+      canvas.start()
+    }
+    function end(target) {
+      canvas.end(typeof target == "number" ? target : Math.round(Math.random() * 9))
+    }
+  </script>
+</body>
+
+</html>
