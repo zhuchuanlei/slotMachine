@@ -1,22 +1,26 @@
 var idNumber = 0;
-var acceleration = 2;
-var maxSpeed = 40;
+var maxSpeed = 50;  // 最大速度
 function SlotMachine(config) {
-  this.target = -1;
   this.topPX = 0;
-  this.speed = 10;
+  this.speed = 0;
   const ctx = this.init(config);
   ctx.globalCompositeOperation = 'destination-over';
   ctx.font = config.fontSize + "px acc";
   this.ctx = ctx;
+  this.stopTime = config.stopTime;
+  this.imgList = config.imgList;
   this.width = config.width;
   this.height = config.height;
   this.fontSize = config.fontSize;
   this.fontWidth = config.fontSize * 0.362;
   this.fontHeight = config.fontSize * 0.667 + 15;
   this.textLeft = (this.width - this.fontWidth) / 2;
-  this.scrollTime = 0;
-  this.startSlow = false;
+  this.isAcceleration = false;  // 加速中
+  this.isDeceleration = false;  // 减速中
+  // topPX 是 this.fontHeight 的整数倍X时，数字显示在正中间，数字 = X % 10
+  // this.topPX = this.fontHeight * 115;
+
+  this.render([{img: config.defaultImage, y:0}], this.fontHeight / 2);
 }
 
 SlotMachine.prototype.init = function ({
@@ -27,65 +31,88 @@ SlotMachine.prototype.init = function ({
   idNumber++;
   canvasDom.width = width;
   canvasDom.height = height;
-  canvasDom.style.width = "100%";
-  canvasDom.style.height = "100%";
+  // canvasDom.style.width = "100%";
+  // canvasDom.style.height = "100%";
   dom.appendChild(canvasDom);
   return canvasDom.getContext('2d');
 }
 
 
-SlotMachine.prototype.start = function () {
-  this.target = -1;
-  this.scrollTime = 0;
-  this.speed = 1;
+SlotMachine.prototype.start = function (time) {
+  this.getSpeed = init(Date.now(), time * 1000, 0, maxSpeed);
+  this.speed = 0;
+  this.isAcceleration = true;
   window.requestAnimationFrame(this.draw.bind(this));
 }
 SlotMachine.prototype.end = function (target) {
   this.target = target;
-  this.startSlowNumber = this.getStartSlowNumber();
-  console.log("中奖号码为：%d", target, this.startSlowNumber);
+  this.isDeceleration = true;
+  const currentNumber = parseInt(this.topPX / this.fontHeight);
+  const currentShowNumber = currentNumber % 10;
+  const diff = currentNumber - currentShowNumber;
+  if (target <= currentShowNumber) {
+    target = target + 10;
+  }
+  if (target - currentShowNumber < 5) {
+    target = target + 10;
+  }
+  const targetNumber = diff + target + 10;
+  const targetPX = parseInt(this.fontHeight * targetNumber);
+  this.targetPX = targetPX;
+  this.getSpeed = init(Date.now(), this.stopTime, this.topPX, targetPX);
 }
 SlotMachine.prototype.draw = function () {
   this.ctx.clearRect(0, 0, this.width, this.height);
   const numbers = this.getNumber();
+  const drawList = [];
   numbers.forEach((i, index) => {
-    const y0 = (i + 1.6) * this.fontHeight - this.topPX;
-    const gradient = this.getLinear(y0);
-    this.ctx.fillStyle = gradient;
-    this.ctx.fillText(i % 10, this.textLeft, y0);
+    const y0 = (i + 1.5) * this.fontHeight - this.topPX;
+    drawList.push({
+      img: this.imgList[i % 10],
+      y: y0
+    })
+    
+    // const gradient = this.getLinear(y0);
+    // this.ctx.fillStyle = gradient;
+    // this.ctx.fillText(i % 10, this.textLeft, y0);
   })
-  this.ctx.save();
-  if (this.target > -1) {
-    if (numbers[6] % 10 === this.target) {
-      console.log(this.scrollTime);
-      if (this.scrollTime === 0) {
-        window.cancelAnimationFrame(this.myReq);
-        return;
+  this.render(drawList);
+  if (this.isDeceleration) {
+    this.topPX = this.getSpeed(Date.now());
+    this.myReq = window.requestAnimationFrame(this.draw.bind(this));
+    if (this.topPX >= this.targetPX) {
+      this.isDeceleration = 0;
+      window.cancelAnimationFrame(this.myReq);
+    }
+    return;
+  } else {
+    if (this.isAcceleration) {
+      if (this.speed >= maxSpeed) {
+        this.isAcceleration = false;
       } else {
-        this.scrollTime = 0;
+        this.speed = this.getSpeed(Date.now());
       }
     }
-    if (this.scrollTime === 0) {
-      if (numbers[2] % 10 === this.startSlowNumber ) {
-        this.startSlow = true;
-      }
-    }
-    if (this.startSlow) {
-      console.log(this.speed);
-      this.speed = this.speed - 3;
-    }
-  } else if (this.scrollTime < maxSpeed * acceleration) {
-    if (this.scrollTime % acceleration === 0) {
-      this.speed = this.speed + 1;
-    }
-    this.scrollTime++;
+    this.topPX = this.topPX + this.speed;
+    this.myReq = window.requestAnimationFrame(this.draw.bind(this));
   }
-  this.topPX = this.topPX + this.speed;
-  this.myReq = window.requestAnimationFrame(this.draw.bind(this));
+}
+SlotMachine.prototype.render = function (drawList, fontHeight) {
+  var liH = this.fontHeight;
+  drawList.forEach(i=> {
+    console.log(i);
+    this.ctx.drawImage(i.img, this.textLeft, i.y,this.fontWidth, fontHeight || this.fontHeight);
+  })
+}
+SlotMachine.prototype.drawImage=function(img,dx,dy,w,h){
+  if(typeof w!=='undefined' && typeof h !=='undefined' ){
+    this.ctx.drawImage(img,0,0,w,h,dx,dy,w,h);
+  }else{
+    this.ctx.drawImage(img,0,0,img.width,img.height,dx,dy,this.width,this.height);
+  }
 }
 
 SlotMachine.prototype.getNumber = getNumber;
-SlotMachine.prototype.getStartSlowNumber = getStartSlowNumber
 SlotMachine.prototype.getLinear = getLinear
 
 export default SlotMachine;
@@ -105,12 +132,4 @@ function getLinear(start) {
   gradient.addColorStop(0, "#882E75");
   gradient.addColorStop(1, "#EB629A");
   return gradient;
-}
-
-
-function getStartSlowNumber() {
-  if (this.target < 2) {
-    return this.target + 10 - 2;
-  }
-  return this.target - 2;
 }
