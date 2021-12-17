@@ -5,22 +5,19 @@ function SlotMachine(config) {
   this.speed = 0;
   const ctx = this.init(config);
   ctx.globalCompositeOperation = 'destination-over';
-  ctx.font = config.fontSize + "px acc";
   this.ctx = ctx;
+  this.config = config;
   this.stopTime = config.stopTime;
   this.imgList = config.imgList;
   this.width = config.width;
   this.height = config.height;
-  this.fontSize = config.fontSize;
-  this.fontWidth = config.fontSize * 0.362;
-  this.fontHeight = config.fontSize * 0.667 + 15;
+  this.fontWidth = config.width * 0.4,
+  this.fontHeight = config.height * 0.6,
+  this.numberHeight = this.fontHeight * 0.8,
   this.textLeft = (this.width - this.fontWidth) / 2;
   this.isAcceleration = false;  // 加速中
   this.isDeceleration = false;  // 减速中
-  // topPX 是 this.fontHeight 的整数倍X时，数字显示在正中间，数字 = X % 10
-  // this.topPX = this.fontHeight * 115;
-
-  this.render([{img: config.defaultImage, y:0}], this.fontHeight / 2);
+  this.renderDefaultImage();
 }
 
 SlotMachine.prototype.init = function ({
@@ -31,8 +28,6 @@ SlotMachine.prototype.init = function ({
   idNumber++;
   canvasDom.width = width;
   canvasDom.height = height;
-  // canvasDom.style.width = "100%";
-  // canvasDom.style.height = "100%";
   dom.appendChild(canvasDom);
   return canvasDom.getContext('2d');
 }
@@ -47,44 +42,28 @@ SlotMachine.prototype.start = function (time) {
 SlotMachine.prototype.end = function (target) {
   this.target = target;
   this.isDeceleration = true;
-  const currentNumber = parseInt(this.topPX / this.fontHeight);
-  const currentShowNumber = currentNumber % 10;
-  const diff = currentNumber - currentShowNumber;
-  if (target <= currentShowNumber) {
-    target = target + 10;
-  }
-  if (target - currentShowNumber < 5) {
-    target = target + 10;
-  }
-  const targetNumber = diff + target + 10;
-  const targetPX = parseInt(this.fontHeight * targetNumber);
-  this.targetPX = targetPX;
-  this.getSpeed = init(Date.now(), this.stopTime, this.topPX, targetPX);
+  this.targetPX = this.getTargetPX();
+  this.getPX = init(Date.now(), this.stopTime, this.topPX, this.targetPX);
 }
 SlotMachine.prototype.draw = function () {
   this.ctx.clearRect(0, 0, this.width, this.height);
   const numbers = this.getNumber();
   const drawList = [];
   numbers.forEach((i, index) => {
-    const y0 = (i + 1.5) * this.fontHeight - this.topPX;
+    const y0 = (i + 1.4) * this.fontHeight - this.topPX;
     drawList.push({
       img: this.imgList[i % 10],
       y: y0
     })
-    
-    // const gradient = this.getLinear(y0);
-    // this.ctx.fillStyle = gradient;
-    // this.ctx.fillText(i % 10, this.textLeft, y0);
   })
-  this.render(drawList);
+  this.render(drawList, numbers[0] === 0);
   if (this.isDeceleration) {
-    this.topPX = this.getSpeed(Date.now());
+    this.topPX = this.getPX(Date.now());
     this.myReq = window.requestAnimationFrame(this.draw.bind(this));
     if (this.topPX >= this.targetPX) {
       this.isDeceleration = 0;
       window.cancelAnimationFrame(this.myReq);
     }
-    return;
   } else {
     if (this.isAcceleration) {
       if (this.speed >= maxSpeed) {
@@ -97,23 +76,28 @@ SlotMachine.prototype.draw = function () {
     this.myReq = window.requestAnimationFrame(this.draw.bind(this));
   }
 }
-SlotMachine.prototype.render = function (drawList, fontHeight) {
-  var liH = this.fontHeight;
+SlotMachine.prototype.render = function (drawList, isShowDefault) {
+  if (isShowDefault) {
+    this.renderDefaultImage(0.5 * this.fontHeight - this.topPX);
+  }
   drawList.forEach(i=> {
-    console.log(i);
-    this.ctx.drawImage(i.img, this.textLeft, i.y,this.fontWidth, fontHeight || this.fontHeight);
+    this.ctx.drawImage(
+      i.img, i.x || this.textLeft, i.y,
+      this.fontWidth, this.numberHeight
+    );
   })
 }
-SlotMachine.prototype.drawImage=function(img,dx,dy,w,h){
-  if(typeof w!=='undefined' && typeof h !=='undefined' ){
-    this.ctx.drawImage(img,0,0,w,h,dx,dy,w,h);
-  }else{
-    this.ctx.drawImage(img,0,0,img.width,img.height,dx,dy,this.width,this.height);
-  }
+SlotMachine.prototype.renderDefaultImage = function (y) {
+  this.ctx.drawImage(
+      this.config.defaultImage,
+      (this.config.width - this.config.defaultImageWidth) / 2,
+      y ? y + 15 : (this.config.height - this.config.defaultImageHeight) / 2,
+      this.config.defaultImageWidth, this.config.defaultImageHeight
+    );
 }
 
 SlotMachine.prototype.getNumber = getNumber;
-SlotMachine.prototype.getLinear = getLinear
+SlotMachine.prototype.getTargetPX = getTargetPX;
 
 export default SlotMachine;
 
@@ -127,9 +111,19 @@ function getNumber() {
   }
   return [num - 2, num - 1, num, num + 1, num + 2]
 }
-function getLinear(start) {
-  const gradient = this.ctx.createLinearGradient(0, start, 0, start - this.height / 2);
-  gradient.addColorStop(0, "#882E75");
-  gradient.addColorStop(1, "#EB629A");
-  return gradient;
+
+function getTargetPX () {
+  const currentNumber = parseInt(this.topPX / this.fontHeight);
+  const currentShowNumber = currentNumber % 10;
+  const diff = currentNumber - currentShowNumber;
+  let target = this.target;
+  if (target <= currentShowNumber) {
+    target = target + 10;
+  }
+  if (target - currentShowNumber < 5) {
+    target = target + 10;
+  }
+  // 目标数字和当前显示数字 差值范围[15, 24]
+  const targetNumber = diff + target + 10;
+  return parseInt(this.fontHeight * targetNumber);
 }
